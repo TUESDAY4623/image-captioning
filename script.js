@@ -1,357 +1,526 @@
-// FaceVision - Face Detection & Recognition
-// By: AI Assistant
-
-// --- GLOBALS ---
-let modelsLoaded = false;
-let labeledDescriptors = [];
-let faceMatcher = null;
-let history = [];
-let currentStream = null;
-let currentSection = 'live';
-
-// --- THEME TOGGLE ---
-function setTheme(mode) {
-    document.body.classList.remove('light-mode', 'dark-mode');
-    document.body.classList.add(mode + '-mode');
-    localStorage.setItem('theme', mode);
-}
-function toggleTheme() {
-    const mode = document.body.classList.contains('dark-mode') ? 'light' : 'dark';
-    setTheme(mode);
-}
-document.getElementById('theme-toggle').onclick = toggleTheme;
-window.onload = () => {
-    setTheme(localStorage.getItem('theme') || 'dark');
-};
-
-// --- NAVIGATION ---
-document.querySelectorAll('.nav-btn').forEach(btn => {
-    btn.onclick = () => {
-        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        document.querySelectorAll('.content-section').forEach(sec => sec.classList.remove('active'));
-        document.getElementById('section-' + btn.dataset.section).classList.add('active');
-        currentSection = btn.dataset.section;
-        if (currentSection === 'history') renderHistory();
-    };
-});
-
-// --- LOADING OVERLAY ---
-function showLoading(msg = 'Loading...') {
-    document.getElementById('loading-overlay').style.display = 'flex';
-    document.getElementById('loading-overlay').querySelector('p').textContent = msg;
-}
-function hideLoading() {
-    document.getElementById('loading-overlay').style.display = 'none';
-}
-
-// --- FACE-API.JS MODEL LOADING ---
-async function loadModels() {
-    showLoading('Loading AI models & preparing camera...');
-    const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models/';
-    console.log('Loading TinyFaceDetector...');
-    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL); console.log('TinyFaceDetector loaded');
-    await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL); console.log('Landmark68 loaded');
-    await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL); console.log('RecognitionNet loaded');
-    await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL); console.log('SSD Mobilenet loaded');
-    modelsLoaded = true;
-    hideLoading();
-}
-
-// --- INIT ---
-(async function init() {
-    await loadModels();
-    loadLabeledDescriptors();
-    setupCamera();
-    setupUpload();
-    setupRegister();
-    renderHistory();
-})();
-
-// --- FACE DATA STORAGE (Local) ---
-function saveLabeledDescriptors() {
-    localStorage.setItem('facevision_faces', JSON.stringify(labeledDescriptors.map(ld => ({
-        label: ld.label,
-        descriptors: ld.descriptors.map(d => Array.from(d))
-    }))));
-}
-function loadLabeledDescriptors() {
-    const data = localStorage.getItem('facevision_faces');
-    if (data) {
-        labeledDescriptors = JSON.parse(data).map(ld => new faceapi.LabeledFaceDescriptors(
-            ld.label,
-            ld.descriptors.map(d => new Float32Array(d))
-        ));
-        if (labeledDescriptors.length > 0) faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5);
+// Image Captioning AI Class
+class ImageCaptioningAI {
+    constructor() {
+        this.model = null;
+        this.isModelLoaded = false;
+        this.currentImage = null;
+        this.history = [];
+        this.maxHistoryItems = 10;
+        
+        this.initializeApp();
     }
-}
 
-// --- HISTORY STORAGE ---
-function saveHistory() {
-    localStorage.setItem('facevision_history', JSON.stringify(history));
-}
-function loadHistory() {
-    const data = localStorage.getItem('facevision_history');
-    if (data) history = JSON.parse(data);
-}
+    async initializeApp() {
+        this.setupEventListeners();
+        this.loadModel();
+        this.loadHistory();
+        this.addParticleEffects();
+    }
 
-// --- CAMERA MODULE ---
-async function setupCamera() {
-    const video = document.getElementById('video');
-    const overlay = document.getElementById('overlay');
-    const startBtn = document.getElementById('start-camera');
-    const stopBtn = document.getElementById('stop-camera');
-    let detecting = false;
+    setupEventListeners() {
+        // File upload
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
 
-    startBtn.onclick = async () => {
-        if (currentStream) return;
-        showLoading('Starting camera...');
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', this.handleDragOver.bind(this));
+        uploadArea.addEventListener('dragleave', this.handleDragLeave.bind(this));
+        uploadArea.addEventListener('drop', this.handleDrop.bind(this));
+        fileInput.addEventListener('change', this.handleFileSelect.bind(this));
+
+        // Buttons
+        document.getElementById('change-image-btn').addEventListener('click', () => {
+            this.resetImage();
+        });
+
+        document.getElementById('regenerate-btn').addEventListener('click', () => {
+            if (this.currentImage) {
+                this.generateCaption(this.currentImage);
+            }
+        });
+
+        document.getElementById('copy-btn').addEventListener('click', () => {
+            this.copyCaption();
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch (e.key) {
+                    case 'o':
+                        e.preventDefault();
+                        fileInput.click();
+                        break;
+                    case 'r':
+                        e.preventDefault();
+                        if (this.currentImage) {
+                            this.generateCaption(this.currentImage);
+                        }
+                        break;
+                }
+            }
+        });
+    }
+
+    async loadModel() {
         try {
-            currentStream = await navigator.mediaDevices.getUserMedia({ video: true });
-            video.srcObject = currentStream;
-            await video.play();
-            hideLoading();
-            detecting = true;
-            detectLoop();
-        } catch (e) {
-            alert('Camera access denied!');
-            hideLoading();
+            console.log('Loading MobileNet model...');
+            
+            // Load MobileNet model for feature extraction
+            this.model = await mobilenet.load();
+            this.isModelLoaded = true;
+            
+            console.log('Model loaded successfully!');
+            this.showToast('AI model loaded successfully!', 'success');
+        } catch (error) {
+            console.error('Error loading model:', error);
+            this.showToast('Failed to load AI model. Please refresh the page.', 'error');
         }
-    };
-    stopBtn.onclick = () => {
-        if (currentStream) {
-            currentStream.getTracks().forEach(track => track.stop());
-            currentStream = null;
-            video.srcObject = null;
-            overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height);
-            detecting = false;
-        }
-    };
-
-    async function detectLoop() {
-        if (!detecting || !modelsLoaded) return;
-        overlay.width = video.videoWidth;
-        overlay.height = video.videoHeight;
-        const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptors();
-        overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height);
-        let results = [];
-        if (detections.length && faceMatcher) {
-            results = detections.map(det => {
-                const best = faceMatcher.findBestMatch(det.descriptor);
-                drawBox(det.detection.box, best.label, overlay);
-                return { label: best.label, box: det.detection.box, confidence: best.distance };
-            });
-        } else {
-            detections.forEach(det => drawBox(det.detection.box, 'Unknown', overlay));
-        }
-        renderLiveResults(results);
-        requestAnimationFrame(detectLoop);
     }
-}
 
-function drawBox(box, label, canvas) {
-    const ctx = canvas.getContext('2d');
-    ctx.strokeStyle = label === 'Unknown' ? '#ff4d4f' : '#4f8cff';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(box.x, box.y, box.width, box.height);
-    ctx.font = 'bold 16px Montserrat';
-    ctx.fillStyle = label === 'Unknown' ? '#ff4d4f' : '#4f8cff';
-    ctx.fillText(label, box.x + 4, box.y - 8 < 0 ? box.y + 18 : box.y - 8);
-}
-
-function renderLiveResults(results) {
-    const area = document.getElementById('live-results');
-    area.innerHTML = '';
-    if (!results.length) return;
-    results.forEach(r => {
-        const card = document.createElement('div');
-        card.className = 'result-card';
-        card.innerHTML = `<div class="avatar"><i class="fas fa-user"></i></div>
-            <div class="name">${r.label}</div>
-            <div class="confidence">${r.confidence ? 'Confidence: ' + (1 - r.confidence).toFixed(2) : ''}</div>`;
-        area.appendChild(card);
-        if (r.label !== 'Unknown') addToHistory(r.label);
-    });
-}
-
-// --- UPLOAD MODULE ---
-function setupUpload() {
-    const uploadInput = document.getElementById('image-upload');
-    const uploadLabel = document.querySelector('.upload-label');
-    const uploadArea = document.getElementById('upload-area');
-    const uploadedImg = document.getElementById('uploaded-image');
-    const overlay = document.getElementById('upload-overlay');
-    uploadLabel.onclick = () => uploadInput.click();
-    uploadInput.onchange = handleFile;
-    uploadArea.ondragover = e => { e.preventDefault(); uploadArea.classList.add('drag'); };
-    uploadArea.ondragleave = e => { e.preventDefault(); uploadArea.classList.remove('drag'); };
-    uploadArea.ondrop = e => {
+    handleDragOver(e) {
         e.preventDefault();
-        uploadArea.classList.remove('drag');
-        if (e.dataTransfer.files.length) {
-            uploadInput.files = e.dataTransfer.files;
-            handleFile();
+        e.currentTarget.classList.add('dragover');
+    }
+
+    handleDragLeave(e) {
+        e.preventDefault();
+        e.currentTarget.classList.remove('dragover');
+    }
+
+    handleDrop(e) {
+        e.preventDefault();
+        e.currentTarget.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            this.processFile(files[0]);
         }
-    };
-    function handleFile() {
-        const file = uploadInput.files[0];
-        if (!file) return;
+    }
+
+    handleFileSelect(e) {
+        const file = e.target.files[0];
+        if (file) {
+            this.processFile(file);
+        }
+    }
+
+    processFile(file) {
+        if (!file.type.startsWith('image/')) {
+            this.showToast('Please select a valid image file.', 'error');
+            return;
+        }
+
         const reader = new FileReader();
-        reader.onload = e => {
-            uploadedImg.src = e.target.result;
-            uploadedImg.style.display = 'block';
-            detectOnImage(uploadedImg, overlay, 'upload-results');
+        reader.onload = (e) => {
+            this.displayImage(e.target.result);
+            this.currentImage = e.target.result;
+            this.generateCaption(e.target.result);
         };
         reader.readAsDataURL(file);
     }
-}
 
-async function detectOnImage(img, overlay, resultsId) {
-    showLoading('Detecting faces...');
-    await img.decode?.();
-    overlay.width = img.naturalWidth;
-    overlay.height = img.naturalHeight;
-    const detections = await faceapi.detectAllFaces(img, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptors();
-    overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height);
-    let results = [];
-    if (detections.length && faceMatcher) {
-        results = detections.map(det => {
-            const best = faceMatcher.findBestMatch(det.descriptor);
-            drawBox(det.detection.box, best.label, overlay);
-            return { label: best.label, box: det.detection.box, confidence: best.distance };
-        });
-    } else {
-        detections.forEach(det => drawBox(det.detection.box, 'Unknown', overlay));
+    displayImage(imageSrc) {
+        const previewImage = document.getElementById('preview-image');
+        const uploadSection = document.getElementById('upload-area').parentElement;
+        const imagePreviewSection = document.getElementById('image-preview-section');
+
+        previewImage.src = imageSrc;
+        uploadSection.style.display = 'none';
+        imagePreviewSection.style.display = 'block';
+        imagePreviewSection.classList.add('fade-in-up');
     }
-    renderResults(results, resultsId);
-    hideLoading();
-}
 
-function renderResults(results, id) {
-    const area = document.getElementById(id);
-    area.innerHTML = '';
-    if (!results.length) return;
-    results.forEach(r => {
-        const card = document.createElement('div');
-        card.className = 'result-card';
-        card.innerHTML = `<div class="avatar"><i class="fas fa-user"></i></div>
-            <div class="name">${r.label}</div>
-            <div class="confidence">${r.confidence ? 'Confidence: ' + (1 - r.confidence).toFixed(2) : ''}</div>`;
-        area.appendChild(card);
-        if (r.label !== 'Unknown') addToHistory(r.label);
-    });
-}
+    resetImage() {
+        const uploadSection = document.getElementById('upload-area').parentElement;
+        const imagePreviewSection = document.getElementById('image-preview-section');
+        const captionSection = document.getElementById('caption-section');
 
-// --- REGISTER MODULE ---
-function setupRegister() {
-    const camBtn = document.getElementById('register-from-camera');
-    const uploadBtn = document.getElementById('register-from-upload');
-    const preview = document.getElementById('register-preview');
-    const form = document.getElementById('register-form');
-    const nameInput = document.getElementById('register-name');
-    const saveBtn = document.getElementById('save-face');
-    let captureImg = null;
+        uploadSection.style.display = 'flex';
+        imagePreviewSection.style.display = 'none';
+        captionSection.style.display = 'none';
+        
+        this.currentImage = null;
+        document.getElementById('file-input').value = '';
+    }
 
-    camBtn.onclick = async () => {
-        showLoading('Accessing camera...');
+    async generateCaption(imageSrc) {
+        if (!this.isModelLoaded) {
+            this.showToast('AI model is still loading. Please wait...', 'error');
+            return;
+        }
+
+        this.showLoading(true);
+        this.updateProgress(0);
+
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            const video = document.createElement('video');
-            video.autoplay = true;
-            video.muted = true;
-            video.playsInline = true;
-            video.srcObject = stream;
-            preview.innerHTML = '';
-            preview.appendChild(video);
-            await video.play();
-            hideLoading();
-            setTimeout(async () => {
-                // Capture frame
-                const canvas = document.createElement('canvas');
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                canvas.getContext('2d').drawImage(video, 0, 0);
-                captureImg = canvas;
-                preview.innerHTML = '';
-                preview.appendChild(canvas);
-                stream.getTracks().forEach(track => track.stop());
-                form.style.display = 'flex';
-            }, 1200);
-        } catch (e) {
-            alert('Camera access denied!');
-            hideLoading();
-        }
-    };
-    uploadBtn.onclick = () => {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.onchange = () => {
-            const file = input.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = e => {
-                const img = document.createElement('img');
-                img.src = e.target.result;
-                img.onload = () => {
-                    preview.innerHTML = '';
-                    preview.appendChild(img);
-                    captureImg = img;
-                    form.style.display = 'flex';
-                };
+            // Create image element for TensorFlow.js
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            
+            img.onload = async () => {
+                try {
+                    // Extract features using MobileNet
+                    this.updateProgress(30);
+                    const features = await this.extractFeatures(img);
+                    
+                    this.updateProgress(60);
+                    
+                    // Generate caption based on features
+                    const caption = await this.generateCaptionFromFeatures(features);
+                    
+                    this.updateProgress(90);
+                    
+                    // Display results
+                    this.displayCaption(caption);
+                    this.addToHistory(caption);
+                    
+                    this.updateProgress(100);
+                    
+                    setTimeout(() => {
+                        this.showLoading(false);
+                    }, 500);
+                    
+                } catch (error) {
+                    console.error('Error generating caption:', error);
+                    this.showToast('Error generating caption. Please try again.', 'error');
+                    this.showLoading(false);
+                }
             };
-            reader.readAsDataURL(file);
-        };
-        input.click();
-    };
-    saveBtn.onclick = async () => {
-        const name = nameInput.value.trim();
-        if (!name) return alert('Please enter a name!');
-        if (!captureImg) return alert('No image to register!');
-        showLoading('Registering face...');
-        const detections = await faceapi.detectSingleFace(captureImg, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-        if (!detections) {
-            hideLoading();
-            return alert('No face detected!');
+            
+            img.src = imageSrc;
+            
+        } catch (error) {
+            console.error('Error processing image:', error);
+            this.showToast('Error processing image. Please try again.', 'error');
+            this.showLoading(false);
         }
-        labeledDescriptors.push(new faceapi.LabeledFaceDescriptors(name, [detections.descriptor]));
-        faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5);
-        saveLabeledDescriptors();
-        hideLoading();
-        preview.innerHTML = '';
-        form.style.display = 'none';
-        nameInput.value = '';
-        document.getElementById('register-results').innerHTML = `<div class='result-card'><div class='avatar'><i class='fas fa-user'></i></div><div class='name'>${name}</div><div>Registered!</div></div>`;
-    };
-}
-
-// --- HISTORY MODULE ---
-function addToHistory(label) {
-    const now = new Date();
-    history.unshift({ label, time: now.toLocaleString() });
-    if (history.length > 30) history = history.slice(0, 30);
-    saveHistory();
-    renderHistory();
-}
-function renderHistory() {
-    loadHistory();
-    const area = document.getElementById('history-list');
-    area.innerHTML = '';
-    if (!history.length) {
-        area.innerHTML = '<div style="opacity:0.7;">No recognition history yet.</div>';
-        return;
     }
-    history.forEach(h => {
-        const card = document.createElement('div');
-        card.className = 'history-card';
-        card.innerHTML = `<div class='avatar'><i class='fas fa-user'></i></div><div class='name'>${h.label}</div><div class='timestamp'>${h.time}</div>`;
-        area.appendChild(card);
-    });
+
+    async extractFeatures(img) {
+        // Use MobileNet to extract features
+        const predictions = await this.model.classify(img);
+        
+        // Get top predictions
+        const topPredictions = predictions.slice(0, 5);
+        
+        // Create feature vector
+        const features = {
+            objects: topPredictions.map(p => p.className),
+            confidence: topPredictions.map(p => p.probability),
+            dominantObject: topPredictions[0]?.className || 'object',
+            overallConfidence: topPredictions[0]?.probability || 0
+        };
+        
+        return features;
+    }
+
+    async generateCaptionFromFeatures(features) {
+        // Simulate AI processing delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const { objects, confidence, dominantObject, overallConfidence } = features;
+        
+        // Generate caption based on detected objects
+        let caption = this.createCaptionFromObjects(objects, confidence);
+        
+        // Add confidence score
+        const confidencePercent = Math.round(overallConfidence * 100);
+        
+        return {
+            text: caption,
+            confidence: confidencePercent,
+            objects: objects,
+            features: features
+        };
+    }
+
+    createCaptionFromObjects(objects, confidence) {
+        const templates = [
+            "A {object} in the image",
+            "The image shows a {object}",
+            "There is a {object} visible",
+            "This appears to be a {object}",
+            "The main subject is a {object}",
+            "I can see a {object} in this image",
+            "This image contains a {object}",
+            "A {object} is prominently featured"
+        ];
+        
+        const object = objects[0]?.toLowerCase() || 'object';
+        const template = templates[Math.floor(Math.random() * templates.length)];
+        
+        let caption = template.replace('{object}', object);
+        
+        // Add additional objects if confidence is high
+        if (objects.length > 1 && confidence[1] > 0.3) {
+            caption += ` along with a ${objects[1].toLowerCase()}`;
+        }
+        
+        // Add descriptive elements based on confidence
+        if (confidence[0] > 0.8) {
+            caption += " with high clarity";
+        } else if (confidence[0] > 0.5) {
+            caption += " with moderate clarity";
+        }
+        
+        return caption;
+    }
+
+    displayCaption(captionData) {
+        const captionSection = document.getElementById('caption-section');
+        const captionText = document.getElementById('caption-text');
+        const confidenceFill = document.getElementById('confidence-fill');
+        const confidenceText = document.getElementById('confidence-text');
+
+        captionText.textContent = captionData.text;
+        confidenceFill.style.width = `${captionData.confidence}%`;
+        confidenceText.textContent = `${captionData.confidence}%`;
+
+        captionSection.style.display = 'block';
+        captionSection.classList.add('fade-in-up');
+        
+        // Add particle effect
+        this.addParticleEffect(captionSection);
+    }
+
+    copyCaption() {
+        const captionText = document.getElementById('caption-text').textContent;
+        
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(captionText).then(() => {
+                this.showToast('Caption copied to clipboard!', 'success');
+            }).catch(() => {
+                this.fallbackCopyTextToClipboard(captionText);
+            });
+        } else {
+            this.fallbackCopyTextToClipboard(captionText);
+        }
+    }
+
+    fallbackCopyTextToClipboard(text) {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            document.execCommand('copy');
+            this.showToast('Caption copied to clipboard!', 'success');
+        } catch (err) {
+            this.showToast('Failed to copy caption.', 'error');
+        }
+        
+        document.body.removeChild(textArea);
+    }
+
+    addToHistory(captionData) {
+        const historyItem = {
+            text: captionData.text,
+            confidence: captionData.confidence,
+            timestamp: new Date().toLocaleString(),
+            objects: captionData.objects
+        };
+        
+        this.history.unshift(historyItem);
+        
+        // Keep only recent items
+        if (this.history.length > this.maxHistoryItems) {
+            this.history = this.history.slice(0, this.maxHistoryItems);
+        }
+        
+        this.saveHistory();
+        this.updateHistoryDisplay();
+    }
+
+    updateHistoryDisplay() {
+        const historySection = document.getElementById('history-section');
+        const historyList = document.getElementById('history-list');
+        
+        if (this.history.length === 0) {
+            historySection.style.display = 'none';
+            return;
+        }
+        
+        historySection.style.display = 'block';
+        historyList.innerHTML = '';
+        
+        this.history.forEach((item, index) => {
+            const historyItem = document.createElement('div');
+            historyItem.className = 'history-item fade-in-up';
+            historyItem.style.animationDelay = `${index * 0.1}s`;
+            
+            historyItem.innerHTML = `
+                <div class="caption">${item.text}</div>
+                <div class="timestamp">${item.timestamp} • Confidence: ${item.confidence}%</div>
+            `;
+            
+            historyList.appendChild(historyItem);
+        });
+    }
+
+    saveHistory() {
+        try {
+            localStorage.setItem('imageCaptioningHistory', JSON.stringify(this.history));
+        } catch (error) {
+            console.error('Error saving history:', error);
+        }
+    }
+
+    loadHistory() {
+        try {
+            const saved = localStorage.getItem('imageCaptioningHistory');
+            if (saved) {
+                this.history = JSON.parse(saved);
+                this.updateHistoryDisplay();
+            }
+        } catch (error) {
+            console.error('Error loading history:', error);
+        }
+    }
+
+    showLoading(show) {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        loadingOverlay.style.display = show ? 'flex' : 'none';
+    }
+
+    updateProgress(percent) {
+        const progressFill = document.getElementById('progress-fill');
+        progressFill.style.width = `${percent}%`;
+    }
+
+    showToast(message, type = 'success') {
+        const toast = document.getElementById(`${type === 'error' ? 'error' : 'success'}-toast`);
+        const toastText = toast.querySelector('span');
+        
+        toastText.textContent = message;
+        toast.classList.add('show');
+        
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
+    }
+
+    addParticleEffects() {
+        // Add floating particles to the background
+        for (let i = 0; i < 20; i++) {
+            this.createParticle();
+        }
+    }
+
+    createParticle() {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        
+        const x = Math.random() * window.innerWidth;
+        const y = Math.random() * window.innerHeight;
+        const size = Math.random() * 3 + 1;
+        const duration = Math.random() * 20 + 10;
+        
+        particle.style.cssText = `
+            left: ${x}px;
+            top: ${y}px;
+            width: ${size}px;
+            height: ${size}px;
+            animation-duration: ${duration}s;
+        `;
+        
+        document.body.appendChild(particle);
+        
+        // Remove particle after animation
+        setTimeout(() => {
+            if (particle.parentNode) {
+                particle.parentNode.removeChild(particle);
+            }
+            this.createParticle();
+        }, duration * 1000);
+    }
+
+    addParticleEffect(element) {
+        const rect = element.getBoundingClientRect();
+        const colors = ['#4ecdc4', '#ff6b6b', '#feca57', '#45b7d1'];
+        
+        for (let i = 0; i < 8; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            
+            const x = rect.left + rect.width / 2;
+            const y = rect.top + rect.height / 2;
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            
+            particle.style.cssText = `
+                left: ${x}px;
+                top: ${y}px;
+                background: ${color};
+                z-index: 1000;
+            `;
+            
+            document.body.appendChild(particle);
+            
+            const angle = (i / 8) * Math.PI * 2;
+            const velocity = 50;
+            const vx = Math.cos(angle) * velocity;
+            const vy = Math.sin(angle) * velocity;
+            
+            let opacity = 1;
+            const animate = () => {
+                opacity -= 0.02;
+                particle.style.opacity = opacity;
+                particle.style.left = (parseFloat(particle.style.left) + vx * 0.1) + 'px';
+                particle.style.top = (parseFloat(particle.style.top) + vy * 0.1) + 'px';
+                
+                if (opacity > 0) {
+                    requestAnimationFrame(animate);
+                } else {
+                    particle.remove();
+                }
+            };
+            
+            requestAnimationFrame(animate);
+        }
+    }
 }
 
-// DEBUG: Hide loading after 10s max
-setTimeout(() => { hideLoading(); console.log('Force hide loading after 10s'); }, 10000);
+// Initialize the app when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    const app = new ImageCaptioningAI();
+    
+    // Add some cool initial animations
+    setTimeout(() => {
+        const featureCards = document.querySelectorAll('.feature-card');
+        featureCards.forEach((card, index) => {
+            setTimeout(() => {
+                card.classList.add('fade-in-up');
+            }, index * 200);
+        });
+    }, 500);
+});
 
-navigator.mediaDevices.getUserMedia({video:true})
-  .then(stream => { alert('Camera working!'); stream.getTracks().forEach(t=>t.stop()); })
-  .catch(e => alert('Camera error: ' + e)); 
+// Add mouse tracking for dynamic background
+document.addEventListener('mousemove', (e) => {
+    const x = e.clientX / window.innerWidth;
+    const y = e.clientY / window.innerHeight;
+    
+    document.documentElement.style.setProperty('--mouse-x', x);
+    document.documentElement.style.setProperty('--mouse-y', y);
+});
+
+// Add CSS custom properties for mouse tracking
+const style = document.createElement('style');
+style.textContent = `
+    :root {
+        --mouse-x: 0.5;
+        --mouse-y: 0.5;
+    }
+    
+    body::before {
+        background: 
+            radial-gradient(circle at calc(var(--mouse-x) * 100%) calc(var(--mouse-y) * 100%), rgba(120, 119, 198, 0.2) 0%, transparent 50%),
+            radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.15) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.15) 0%, transparent 50%),
+            radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 60% 60%, rgba(255, 183, 77, 0.1) 0%, transparent 50%);
+    }
+`;
+document.head.appendChild(style); 
