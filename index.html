@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FaceVision - Face Detection & Recognition</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&family=Fira+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script defer src="script.js"></script>
+</head>
+<body class="dark-mode">
+    <!-- Floating Theme Toggle -->
+    <div class="theme-toggle" id="theme-toggle">
+        <div class="toggle-track">
+            <div class="toggle-thumb">
+                <i class="fas fa-sun"></i>
+                <i class="fas fa-moon"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Animated Background -->
+    <div class="animated-bg">
+        <div class="floating-shapes">
+            <div class="shape shape-1"></div>
+            <div class="shape shape-2"></div>
+            <div class="shape shape-3"></div>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fas fa-eye"></i>
+                <span>FaceVision</span>
+            </div>
+            <nav class="nav-menu">
+                <button class="nav-btn active" data-section="live">Live Camera</button>
+                <button class="nav-btn" data-section="upload">Upload Image</button>
+                <button class="nav-btn" data-section="register">Register Face</button>
+                <button class="nav-btn" data-section="history">History</button>
+            </nav>
+            <div class="sidebar-footer">
+                <span class="footer-text">AI Face Detection & Recognition</span>
+            </div>
+        </aside>
+        <main class="main-content">
+            <!-- Live Camera Section -->
+            <section class="content-section active" id="section-live">
+                <div class="section-header">
+                    <h1><i class="fas fa-video"></i> Live Camera</h1>
+                    <p>Detect & recognize faces in real-time using your webcam.</p>
+                </div>
+                <div class="camera-area">
+                    <video id="video" autoplay muted playsinline></video>
+                    <canvas id="overlay"></canvas>
+                    <div class="camera-controls">
+                        <button id="start-camera" class="btn btn-primary"><i class="fas fa-play"></i> Start Camera</button>
+                        <button id="stop-camera" class="btn btn-secondary"><i class="fas fa-stop"></i> Stop</button>
+                    </div>
+                </div>
+                <div class="live-results" id="live-results"></div>
+            </section>
+
+            <!-- Upload Image Section -->
+            <section class="content-section" id="section-upload">
+                <div class="section-header">
+                    <h1><i class="fas fa-upload"></i> Upload Image</h1>
+                    <p>Detect & recognize faces in any image. Drag & drop or select a file.</p>
+                </div>
+                <div class="upload-area" id="upload-area">
+                    <input type="file" id="image-upload" accept="image/*" hidden />
+                    <label for="image-upload" class="upload-label">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span>Click or Drag & Drop Image Here</span>
+                    </label>
+                    <img id="uploaded-image" style="display:none;" />
+                    <canvas id="upload-overlay"></canvas>
+                </div>
+                <div class="upload-results" id="upload-results"></div>
+            </section>
+
+            <!-- Register Face Section -->
+            <section class="content-section" id="section-register">
+                <div class="section-header">
+                    <h1><i class="fas fa-user-plus"></i> Register New Face</h1>
+                    <p>Register your face for recognition. Capture from camera or upload image.</p>
+                </div>
+                <div class="register-area">
+                    <div class="register-methods">
+                        <button id="register-from-camera" class="btn btn-primary"><i class="fas fa-camera"></i> Use Camera</button>
+                        <button id="register-from-upload" class="btn btn-secondary"><i class="fas fa-image"></i> Upload Image</button>
+                    </div>
+                    <div class="register-preview" id="register-preview"></div>
+                    <div class="register-form" id="register-form" style="display:none;">
+                        <input type="text" id="register-name" placeholder="Enter Name" />
+                        <button id="save-face" class="btn btn-success"><i class="fas fa-save"></i> Save Face</button>
+                    </div>
+                </div>
+                <div class="register-results" id="register-results"></div>
+            </section>
+
+            <!-- History Section -->
+            <section class="content-section" id="section-history">
+                <div class="section-header">
+                    <h1><i class="fas fa-history"></i> Recognition History</h1>
+                    <p>See all recognized faces with timestamps and thumbnails.</p>
+                </div>
+                <div class="history-list" id="history-list"></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-spinner">
+            <div class="spinner-ring"></div>
+            <div class="spinner-ring"></div>
+            <div class="spinner-ring"></div>
+        </div>
+        <p>Loading AI models & preparing camera...</p>
+    </div>
+</body>
+</html> 
