@@ -1,140 +1,220 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Image Captioning - Vision to Text</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>VisionAI — Intelligent Image Captioning</title>
+    <meta name="description"
+        content="AI-powered image captioning using deep learning. Upload any image and get instant, human-like descriptive captions.">
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
+
 <body>
     <div class="container">
-        <header class="header">
+
+        <!-- HEADER -->
+        <header class="header fade-up">
             <h1 class="title">
                 <i class="fas fa-eye"></i>
-                AI Image Captioning
-                <span class="subtitle">Vision to Text Intelligence</span>
+                VisionAI
+                <span class="subtitle">Intelligent Image Captioning</span>
             </h1>
         </header>
 
-        <div class="upload-section">
-            <div class="upload-area" id="upload-area">
-                <div class="upload-content">
-                    <i class="fas fa-cloud-upload-alt upload-icon"></i>
-                    <h3>Upload Your Image</h3>
-                    <p>Drag & drop an image here or click to browse</p>
-                    <span class="file-types">Supports: JPG, PNG, GIF, WEBP</span>
-                </div>
-                <input type="file" id="file-input" accept="image/*" hidden>
-            </div>
+        <!-- MODEL STATUS -->
+        <div class="model-status fade-up-1" id="modelStatus">
+            <div class="status-dot loading" id="statusDot"></div>
+            <span class="status-text" id="statusText">Loading AI model…</span>
         </div>
 
-        <div class="image-preview-section" id="image-preview-section" style="display: none;">
+        <!-- UPLOAD SECTION -->
+        <section class="upload-section fade-up-2" id="uploadSection">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-content">
+                    <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                    <h3>Drop an image here</h3>
+                    <p>or click to browse your files</p>
+                    <span class="file-types">JPG · PNG · GIF · WEBP · BMP · SVG</span>
+                </div>
+                <input type="file" id="fileInput" accept="image/*" hidden>
+            </div>
+        </section>
+
+        <!-- IMAGE PREVIEW (hidden until image loaded) -->
+        <section class="image-preview-section fade-up" id="imagePreviewSection" style="display:none">
             <div class="image-container">
-                <img id="preview-image" alt="Uploaded image">
+                <img id="previewImage" alt="Uploaded image">
+                <div class="image-meta-bar" id="imageMeta"></div>
                 <div class="image-overlay">
-                    <button class="btn btn-secondary" id="change-image-btn">
-                        <i class="fas fa-edit"></i>
-                        Change Image
+                    <button class="btn btn-secondary btn-icon" id="changeImageBtn" title="Change image">
+                        <i class="fas fa-exchange-alt"></i> Change
+                    </button>
+                    <button class="btn btn-secondary btn-icon" id="downloadImageBtn" title="Download image">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="btn btn-danger btn-icon" id="clearBtn" title="Clear">
+                        <i class="fas fa-trash-alt"></i>
                     </button>
                 </div>
             </div>
+        </section>
+
+        <!-- ANALYSIS GRID (hidden until image loaded) -->
+        <div class="analysis-grid" id="analysisGrid" style="display:none">
+            <!-- Color palette -->
+            <div class="analysis-card fade-up">
+                <h4><i class="fas fa-palette"></i> Dominant Colors</h4>
+                <div class="color-swatches" id="colorSwatches"></div>
+            </div>
+            <!-- Scene info -->
+            <div class="analysis-card fade-up">
+                <h4><i class="fas fa-sun"></i> Scene Analysis</h4>
+                <div class="scene-info" id="sceneInfo"></div>
+            </div>
+            <!-- Tags -->
+            <div class="analysis-card fade-up">
+                <h4><i class="fas fa-tags"></i> Detected Tags</h4>
+                <div class="tags-wrap" id="tagsWrap"></div>
+            </div>
+            <!-- Top classifications -->
+            <div class="analysis-card fade-up">
+                <h4><i class="fas fa-chart-bar"></i> AI Classifications</h4>
+                <div class="classifications" id="classifications"></div>
+            </div>
         </div>
 
-        <div class="caption-section" id="caption-section" style="display: none;">
+        <!-- CAPTION SECTION (hidden until image loaded) -->
+        <section class="caption-section card fade-up" id="captionSection" style="display:none;padding:24px">
             <div class="caption-header">
-                <h3>Generated Caption</h3>
+                <h3><i class="fas fa-comment-alt" style="color:var(--accent);margin-right:8px"></i>Generated Caption
+                </h3>
                 <div class="confidence-meter">
                     <span>Confidence:</span>
                     <div class="confidence-bar">
-                        <div class="confidence-fill" id="confidence-fill"></div>
+                        <div class="confidence-fill" id="confidenceFill"></div>
                     </div>
-                    <span id="confidence-text">0%</span>
+                    <span id="confidenceText">0%</span>
                 </div>
             </div>
-            
-            <div class="caption-display">
-                <div class="caption-text" id="caption-text">
-                    <i class="fas fa-spinner fa-spin"></i>
-                    Analyzing image...
-                </div>
-                <div class="caption-actions">
-                    <button class="btn btn-primary" id="regenerate-btn">
-                        <i class="fas fa-sync-alt"></i>
-                        Regenerate
-                    </button>
-                    <button class="btn btn-secondary" id="copy-btn">
-                        <i class="fas fa-copy"></i>
-                        Copy
-                    </button>
-                </div>
-            </div>
-        </div>
 
-        <div class="features-section">
-            <h3>AI Features</h3>
+            <!-- Caption style tabs -->
+            <div class="style-tabs" id="styleTabs">
+                <button class="style-tab active" data-style="descriptive">📝 Descriptive</button>
+                <button class="style-tab" data-style="casual">💬 Casual</button>
+                <button class="style-tab" data-style="creative">🎨 Creative</button>
+                <button class="style-tab" data-style="technical">🔬 Technical</button>
+                <button class="style-tab" data-style="short">⚡ Short</button>
+            </div>
+
+            <div class="caption-box">
+                <p class="caption-text" id="captionText">
+                    <i class="fas fa-spinner"></i> Analyzing image…
+                </p>
+            </div>
+
+            <!-- Caption length slider -->
+            <div class="caption-length">
+                <i class="fas fa-text-width" style="color:var(--accent)"></i>
+                <span>Length:</span>
+                <input type="range" id="lengthSlider" min="1" max="3" value="2" step="1">
+                <span id="lengthLabel">Medium</span>
+            </div>
+
+            <div class="caption-actions" id="captionActions">
+                <button class="btn btn-primary" id="regenerateBtn">
+                    <i class="fas fa-sync-alt"></i> Regenerate
+                </button>
+                <button class="btn btn-secondary" id="copyBtn">
+                    <i class="fas fa-copy"></i> Copy
+                </button>
+                <button class="btn btn-secondary" id="speakBtn">
+                    <i class="fas fa-volume-up"></i> Speak
+                </button>
+                <button class="btn btn-secondary" id="saveBtn">
+                    <i class="fas fa-bookmark"></i> Save
+                </button>
+                <button class="btn btn-secondary" id="shareBtn">
+                    <i class="fas fa-share-alt"></i> Share
+                </button>
+            </div>
+        </section>
+
+        <!-- FEATURES SECTION -->
+        <section class="features-section fade-up-3">
+            <h3>✨ Features</h3>
             <div class="features-grid">
                 <div class="feature-card">
                     <i class="fas fa-brain"></i>
-                    <h4>Deep Learning</h4>
-                    <p>Advanced neural networks for image understanding</p>
+                    <h4>MobileNet AI</h4>
+                    <p>Real deep-learning classification with probability scores</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-palette"></i>
+                    <h4>Color Analysis</h4>
+                    <p>Extracts dominant colors and brightness from your image</p>
                 </div>
                 <div class="feature-card">
                     <i class="fas fa-language"></i>
-                    <h4>Natural Language</h4>
-                    <p>Human-like caption generation</p>
+                    <h4>5 Caption Styles</h4>
+                    <p>Descriptive, casual, creative, technical, and short captions</p>
                 </div>
                 <div class="feature-card">
-                    <i class="fas fa-bolt"></i>
-                    <h4>Real-time</h4>
-                    <p>Instant caption generation</p>
+                    <i class="fas fa-volume-up"></i>
+                    <h4>Text-to-Speech</h4>
+                    <p>Listen to captions read aloud by the browser TTS engine</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-history"></i>
+                    <h4>Caption History</h4>
+                    <p>Browse and recall all your previously captioned images</p>
                 </div>
                 <div class="feature-card">
                     <i class="fas fa-shield-alt"></i>
-                    <h4>Privacy First</h4>
-                    <p>Your images stay on your device</p>
+                    <h4>100% Private</h4>
+                    <p>All processing is local — images never leave your device</p>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <div class="history-section" id="history-section" style="display: none;">
-            <h3>Recent Captions</h3>
-            <div class="history-list" id="history-list">
-                <!-- History items will be added here -->
+        <!-- HISTORY SECTION -->
+        <section class="history-section" id="historySection" style="display:none">
+            <h3>🕐 Recent Captions</h3>
+            <div class="history-list" id="historyList"></div>
+        </section>
+
+    </div><!-- /container -->
+
+    <!-- LOADING OVERLAY -->
+    <div class="loading-overlay" id="loadingOverlay" style="display:none">
+        <div class="loading-content">
+            <div class="loading-spinner">
+                <div class="spinner-ring"></div>
+                <div class="spinner-ring"></div>
+                <div class="spinner-ring"></div>
             </div>
-        </div>
-
-        <div class="loading-overlay" id="loading-overlay" style="display: none;">
-            <div class="loading-content">
-                <div class="loading-spinner">
-                    <div class="spinner-ring"></div>
-                    <div class="spinner-ring"></div>
-                    <div class="spinner-ring"></div>
-                </div>
-                <h3>Analyzing Image...</h3>
-                <p>Our AI is understanding the visual content</p>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progress-fill"></div>
-                </div>
+            <h3>Analyzing Image…</h3>
+            <p id="loadingMsg">Running deep learning inference</p>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
             </div>
         </div>
     </div>
 
-    <!-- Success Toast -->
-    <div class="toast" id="success-toast">
-        <i class="fas fa-check-circle"></i>
-        <span>Caption copied to clipboard!</span>
+    <!-- TOASTS -->
+    <div class="toast" id="toastSuccess"><i class="fas fa-check-circle"></i><span id="toastSuccessMsg">Done!</span>
     </div>
+    <div class="toast error" id="toastError"><i class="fas fa-exclamation-circle"></i><span id="toastErrorMsg">Something
+            went wrong.</span></div>
+    <div class="toast info" id="toastInfo"><i class="fas fa-info-circle"></i><span id="toastInfoMsg">Info</span></div>
 
-    <!-- Error Toast -->
-    <div class="toast error" id="error-toast">
-        <i class="fas fa-exclamation-circle"></i>
-        <span>Something went wrong. Please try again.</span>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
     <script src="script.js"></script>
 </body>
-</html> 
+
+</html>
